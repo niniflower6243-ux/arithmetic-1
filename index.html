@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>多步驟算式小遊戲</title>
+<style>
+:root{
+  --bg:#fffaf0; --ink:#2b2b2b; --hl:#ff6b00; --hlbg:#ffe6cc;
+  --blue:#2f7de1; --bluebg:#e6f1ff; --ok:#2e9e5b;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+  font-family:"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;
+  touch-action:manipulation;-webkit-user-select:none;user-select:none}
+#app{max-width:980px;margin:0 auto;padding:14px 16px 28px;min-height:100%;display:flex;flex-direction:column;gap:14px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:48px}
+.left{display:flex;align-items:center;gap:16px}
+.back{font:inherit;font-weight:700;font-size:20px;min-height:48px;padding:0 18px;border-radius:24px;border:3px solid #d9cfb8;background:#fff;color:#6b6250;cursor:pointer}
+.back:active{background:#f3ecdb}
+.chips{display:flex;gap:8px;margin-left:auto}
+.chip{width:40px;height:40px;border-radius:50%;background:#efe7d6;color:#9a8f78;font-weight:700;font-size:22px;display:flex;align-items:center;justify-content:center}
+.chip.on{background:var(--hl);color:#fff}
+.intro{font-size:clamp(20px,3vw,27px);font-weight:700;text-align:center;line-height:1.5}
+.prompt{font-size:clamp(22px,3.4vw,30px);font-weight:700;text-align:center;line-height:1.5}
+.og{color:var(--hl);font-weight:900}
+.bg{color:var(--blue);font-weight:900}
+.stage{min-height:110px;background:#fff;border:3px solid #f0e6d0;border-radius:20px;padding:12px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center}
+.it{flex:none;font-size:clamp(18px,2.8vw,26px);line-height:1}
+.pack{flex:none;background:var(--bluebg);border:2px solid var(--blue);border-radius:14px;padding:6px 10px;display:flex;gap:3px}
+.crate{flex:none;background:#fff0c9;border:3px solid #c98a1b;border-radius:14px;padding:8px;display:flex;flex-wrap:wrap;gap:5px;justify-content:center;max-width:430px}
+.mini{flex:none;background:var(--bluebg);border:2px solid var(--blue);border-radius:8px;width:44px;height:36px;display:flex;align-items:center;justify-content:center}
+.mini .it{font-size:20px}
+.dots{font-size:34px;font-weight:900;color:#8a7f68;flex:none}
+.tag{flex:none;font-size:clamp(20px,3vw,28px);font-weight:700;color:var(--blue);background:var(--bluebg);border-radius:30px;padding:6px 18px}
+.pop{animation:pop .45s cubic-bezier(.2,1.6,.4,1) both}
+@keyframes pop{from{transform:scale(.2);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-9px)}75%{transform:translateX(9px)}}
+.shake{animation:shake .3s}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
+.fade{animation:pop .5s both}
+.eq{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;font-size:clamp(34px,6.4vw,60px);font-weight:800}
+.eq .op,.geq .op{color:#8a7f68}
+.n{min-width:1.2em;text-align:center}
+.n.q{background:#fff;border:3px dashed #d9cfb8;border-radius:16px;padding:0 14px;color:#b3a98f}
+.cO,.cB{border-radius:50%;border:5px solid;min-width:1.7em;padding:0 .1em;line-height:1.5}
+.cO{border-color:var(--hl);color:var(--hl)}
+.cB{border-color:var(--blue);color:var(--blue)}
+.word{font-size:clamp(22px,3.4vw,30px);font-weight:700;color:var(--blue);background:var(--bluebg);border-radius:30px;padding:6px 18px}
+.choices{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
+.btn{font:inherit;font-weight:800;font-size:clamp(34px,6vw,52px);min-width:110px;min-height:84px;padding:0 26px;border-radius:22px;
+  border:none;background:var(--blue);color:#fff;box-shadow:0 6px 0 #1f5aa8;cursor:pointer}
+.btn:active{transform:translateY(4px);box-shadow:0 2px 0 #1f5aa8}
+.btn.go{background:var(--ok);box-shadow:0 6px 0 #1f7340;min-width:150px}
+.btn.go:active{box-shadow:0 2px 0 #1f7340}
+.row,.see{display:flex;justify-content:center}
+.see{flex-direction:column;align-items:center;gap:12px}
+.cards{display:flex;flex-direction:column;gap:10px;align-items:center}
+.card{background:#fff;border:3px solid #f0e6d0;border-radius:20px;padding:8px 22px;max-width:100%}
+.cards .eq{font-size:clamp(24px,4.6vw,42px);gap:8px}
+.lbl{font-size:clamp(18px,2.8vw,26px);font-weight:700;color:#8a7f68;margin-right:6px}
+/* 合併算式（格線：第 1 列算式，後面列為底線標註） */
+.geq{--h:clamp(56px,9vw,84px);display:grid;justify-content:center;column-gap:4px;row-gap:5px;font-size:clamp(20px,5.4vw,54px);font-weight:800}
+.geq .t{height:var(--h);display:flex;align-items:center;justify-content:center;grid-row:1}
+.geq .par{font-weight:900}
+.geq .par.o{color:var(--hl)} .geq .par.b{color:var(--blue)}
+.geq .cap{font-size:clamp(13px,2.4vw,21px);font-weight:700;border-top:4px solid;padding-top:4px;text-align:center;line-height:1.3}
+.geq .cap.o{color:var(--hl);border-color:var(--hl)}
+.geq .cap.b{color:var(--blue);border-color:var(--blue)}
+.tap{cursor:pointer;animation:pulse 1.2s infinite}
+.big{font-size:96px}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+/* 題目：農場生產 1800 顆雞蛋，每 10 顆裝 1 盒，每 15 盒裝 1 箱，每箱售價 825 元，全部售出，可以賣多少錢？
+   第一步 1800÷10＝180（橘）  第二步 180÷15＝12（藍）  第三步 12×825＝9900 */
+const P=['s1','s2','s3','show','merge','brk','chk','fin'];
+let phase='s1', lock=false, epoch=0;
+let m2=false, m1=false, b1=false, b2=false; // m2:藍12 已換回  m1:橘180 已換回  b1:第一步括號  b2:第二步括號
+const app=document.getElementById('app');
+
+const N=(v,c)=>`<span class="n ${c||''}">${v}</span>`;
+const O=v=>`<span class="op">${v}</span>`;
+const CO=v=>`<span class="n cO">${v}</span>`;
+const CB=v=>`<span class="n cB">${v}</span>`;
+const Q=`<span class="n q">？</span>`;
+const INTRO=`<div class="intro">農場生產 1800 顆雞蛋，每 10 顆裝 1 盒，每 15 盒裝 1 箱，<br>每箱售價 825 元，全部售出，可以賣多少錢？</div>`;
+const egg=n=>Array.from({length:n},()=>`<span class="it">🥚</span>`).join('');
+
+function head(){
+  const on = phase==='s1'||phase==='s2'||phase==='s3'?1: phase==='show'?2: (phase==='merge'||phase==='brk'||phase==='chk')?3:0;
+  const back = phase!=='s1';
+  return `<div class="top"><div class="left">${back?`<button class="back" id="back">◀ 上一步</button>`:''}</div>
+    <div class="chips">${[1,2,3].map(n=>`<div class="chip ${n===on?'on':''}">${n}</div>`).join('')}</div></div>`;
+}
+function choices(list){return `<div class="choices">${list.map(v=>`<button class="btn" data-v="${v}">${v}</button>`).join('')}</div>`}
+
+/* 三個步驟卡片：橘＝第一步的結果(180)，藍＝第二步的結果(12) */
+function card(k,circled){
+  if(k===1) return `<div class="card"><div class="eq"><span class="lbl">第一步</span>${N(1800)}${O('÷')}${N(10)}${O('＝')}${circled?CO(180):N(180)}</div></div>`;
+  if(k===2) return `<div class="card"><div class="eq"><span class="lbl">第二步</span>${circled?CO(180):N(180)}${O('÷')}${N(15)}${O('＝')}${circled?CB(12):N(12)}</div></div>`;
+  return `<div class="card"><div class="eq"><span class="lbl">第三步</span>${circled?CB(12):N(12)}${O('×')}${N(825)}${O('＝')}${N(9900)}</div></div>`;
+}
+const cards=(ks,circled)=>`<div class="cards">${ks.map(k=>card(k,circled)).join('')}</div>`;
+
+/* 合併算式：由第三步 12×825 開始，點藍 12 換成 180÷15，再點橘 180 換成 1800÷10 */
+function mergedEq(tapGroups){
+  const T=[], G=[];
+  const tok=(h,cls)=>T.push({h,cls:cls||''});
+  if(!m2){
+    tok(`<span class="n cB tap" id="n12">12</span>`);
+  } else {
+    const sB=T.length;
+    if(b2) tok('(','par b');
+    if(!m1){
+      tok(`<span class="n cO tap" id="n180">180</span>`);
+    } else {
+      const sA=T.length;
+      if(b1) tok('(','par o');
+      tok('1800'); tok('÷','op'); tok('10');
+      if(b1) tok(')','par o');
+      G.push({s:sA,e:T.length-1,c:'o',cap:'第一步驟',id:'ga',tap:tapGroups&&!b1});
+    }
+    tok('÷','op'); tok('15');
+    if(b2) tok(')','par b');
+    G.push({s:sB,e:T.length-1,c:'b',cap:'第二步驟',id:'gb',tap:tapGroups&&!b2});
+  }
+  tok('×','op'); tok('825'); tok('＝','op'); tok('9900');
+  const hasA=G.some(g=>g.c==='o');
+  let h=`<div class="geq" style="grid-template-columns:repeat(${T.length},auto)">`;
+  T.forEach((t,i)=>{ h+=`<span class="t ${t.cls}" style="grid-column:${i+1}">${t.h}</span>`; });
+  G.forEach(g=>{
+    const row = g.c==='o'?2:(hasA?3:2);
+    h+=`<div class="cap ${g.c} ${g.tap?'tap':''}" ${g.id?`id="${g.id}"`:''} style="grid-row:${row};grid-column:${g.s+1} / ${g.e+2}">${g.cap}</div>`;
+  });
+  return h+`</div>`;
+}
+const finalEq=()=>`${O('(')}${O('(')}${N(1800)}${O('÷')}${N(10)}${O(')')}${O('÷')}${N(15)}${O(')')}${O('×')}${N(825)}${O('＝')}${N(9900)}`;
+
+function render(o){
+  o=o||{};
+  let h=head();
+  if(phase==='s1'){
+    h+=INTRO+`<div class="stage">
+        ${[0,1,2].map(i=>`<div class="pack pop" style="animation-delay:${i*90}ms">${egg(10)}</div>`).join('')}<span class="dots">…</span>
+        <span class="tag">每 10 顆裝 1 盒</span></div>`;
+    h+=`<div class="prompt">第一步：1800 顆雞蛋，<br>每 10 顆裝 1 盒，可以裝幾盒？</div>`;
+    h+=`<div class="eq">${N(1800)}${O('÷')}${N(10)}${O('＝')}${o.done?N(180):Q}<span class="word">幾盒</span></div>`;
+    h+=o.done?'':choices([18,180,1790]);
+  } else if(phase==='s2'){
+    h+=INTRO+`<div class="stage">
+        <div class="crate pop">${Array.from({length:15},()=>`<div class="mini"><span class="it">🥚</span></div>`).join('')}</div>
+        <span class="tag">每 15 盒裝 1 箱</span></div>`;
+    h+=`<div class="prompt">第二步：每 15 盒裝 1 箱，<br><span class="og">180</span> 盒可以裝幾箱？</div>`;
+    h+=`<div class="eq">${CO(180)}${O('÷')}${N(15)}${O('＝')}${o.done?N(12):Q}<span class="word">幾箱</span></div>`;
+    h+=o.done?'':choices([12,165,195]);
+  } else if(phase==='s3'){
+    h+=cards([1,2],true);
+    h+=`<div class="prompt">第三步：每箱售價 825 元，<br><span class="bg">12</span> 箱可以賣多少元？</div>`;
+    h+=`<div class="eq">${CB(12)}${O('×')}${N(825)}${O('＝')}${o.done?N(9900):Q}<span class="word">元</span></div>`;
+    h+=o.done?'':choices([837,9900,990]);
+  } else if(phase==='show'){
+    h+=cards([1,2,3],true);
+    h+=`<div class="prompt fade" style="animation-delay:.8s">第三步的 <span class="bg">12</span>，是第二步算出來的<br>第二步的 <span class="og">180</span>，是第一步算出來的</div>
+        <div class="row fade" style="animation-delay:.8s"><button class="btn go" id="next">▶</button></div>`;
+  } else if(phase==='merge'){
+    h+=cards([1,2],true);
+    const msg = !m2 ? '點一點藍色的 12，<br>看看它是怎麼算出來的'
+              : !m1 ? '再點橘色的 180，<br>看看它是怎麼算出來的'
+              : '合併成一個式子了！';
+    h+=`<div class="prompt" id="mprompt">${msg}</div>`;
+    h+=mergedEq(false);
+  } else if(phase==='brk'){
+    h+=cards([1,2],true);
+    h+=`<div class="prompt">為了提醒自己第一、二步要先算，<br>幫它們加上括號（點一點）</div>`;
+    h+=mergedEq(true);
+  } else if(phase==='chk'){
+    h+=`<div class="cards">
+      <div class="card"><div class="eq"><span class="lbl">剛剛</span>${CB(12)}${O('×')}${N(825)}${O('＝')}${N(9900)}</div></div>
+      <div class="card"><div class="eq"><span class="lbl">現在</span>${finalEq()}</div></div>
+    </div>
+    <div class="prompt">兩個算式的答案，一樣嗎？</div>
+    <div class="choices"><button class="btn" data-v="1">一樣</button><button class="btn" data-v="0">不一樣</button></div>`;
+  } else {
+    h+=`<div class="see" style="margin-top:24px"><div class="big pop">🎉</div><div class="intro">完成了！</div>
+      <div class="card fade"><div class="eq">${finalEq()}</div></div>
+      <button class="btn go" id="again">↻</button></div>`;
+  }
+  app.innerHTML=h;
+  bind();
+}
+
+function bind(){
+  document.querySelectorAll('.choices .btn').forEach(b=>b.onclick=()=>pick(b));
+  const bk=document.getElementById('back'); if(bk) bk.onclick=goBack;
+  const nx=document.getElementById('next'); if(nx) nx.onclick=()=>{phase='merge';m1=m2=b1=b2=false;render()};
+  const ag=document.getElementById('again'); if(ag) ag.onclick=()=>{phase='s1';m1=m2=b1=b2=false;render()};
+  if(phase==='merge'){
+    const a=document.getElementById('n12'), b=document.getElementById('n180');
+    if(a) a.onclick=()=>{m2=true;afterMerge()};
+    if(b) b.onclick=()=>{m1=true;afterMerge()};
+  }
+  if(phase==='brk'){
+    const a=document.getElementById('ga'), b=document.getElementById('gb');
+    if(a && !b1) a.onclick=()=>{b1=true;afterBrk()};
+    if(b && !b2) b.onclick=()=>{b2=true;afterBrk()};
+  }
+}
+function afterMerge(){
+  render();
+  if(m1&&m2){
+    const e=epoch;
+    setTimeout(()=>{ if(e!==epoch) return; phase='brk'; b1=b2=false; render(); },1500);
+  }
+}
+function afterBrk(){
+  render();
+  if(b1&&b2){
+    const e=epoch;
+    setTimeout(()=>{ if(e!==epoch) return; phase='chk'; render(); },1300);
+  }
+}
+function goBack(){
+  epoch++; lock=false;
+  const i=P.indexOf(phase);
+  if(phase==='brk'){ phase='merge'; m1=m2=b1=b2=false; }
+  else if(phase==='chk'){ phase='brk'; m1=m2=true; b1=b2=false; }
+  else if(i>0){ phase=P[i-1]; if(phase==='merge') m1=m2=b1=b2=false; }
+  render();
+}
+function pick(btn){
+  if(lock) return;
+  const v=+btn.dataset.v;
+  const ans = phase==='s1'?180 : phase==='s2'?12 : phase==='s3'?9900 : 1;
+  if(v!==ans){btn.classList.remove('shake');void btn.offsetWidth;btn.classList.add('shake');return}
+  if(phase==='chk'){ phase='fin'; render(); return; }
+  lock=true;
+  const was=phase, e=epoch;
+  render({done:true});
+  setTimeout(()=>{
+    if(e!==epoch) return; lock=false;
+    phase = was==='s1'?'s2' : was==='s2'?'s3' : 'show';
+    render();
+  }, 1400);
+}
+render();
+</script>
+</body>
+</html>
